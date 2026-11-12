@@ -34,6 +34,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.myfirstapp.Bus
+import com.example.myfirstapp.BusRoute
+import com.example.myfirstapp.BusStop
 import com.example.myfirstapp.DatabaseManager
 import com.example.myfirstapp.PaymentSettings
 import com.example.myfirstapp.user
@@ -48,6 +51,33 @@ fun AdminDashboardScreen(
 ) {
     var selectedTab by remember { mutableStateOf("Dashboard") }
     var activeSubScreen by remember { mutableStateOf<String?>(null) }
+
+    var busesList by remember { mutableStateOf<List<Bus>>(emptyList()) }
+    var routesList by remember { mutableStateOf<List<BusRoute>>(emptyList()) }
+    var stopsList by remember { mutableStateOf<List<BusStop>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        DatabaseManager.listenToBuses(
+            onUpdate = { fetchedBuses -> busesList = fetchedBuses }
+        )
+        DatabaseManager.listenToRoutes(
+            onUpdate = { fetchedRoutes -> routesList = fetchedRoutes }
+        )
+        DatabaseManager.listenToBusStops(
+            onUpdate = { fetchedStops -> stopsList = fetchedStops }
+        )
+    }
+
+    val activeBusesCount = busesList.count { it.status.equals("Active", ignoreCase = true) }
+    val totalBusesCount = busesList.size
+    val busesActiveText = if (totalBusesCount > 0) "$activeBusesCount/$totalBusesCount" else "$activeBusesCount/0"
+
+    val activeRoutesCount = routesList.count { it.status.equals("Active", ignoreCase = true) }
+    val routesText = if (routesList.isNotEmpty()) "$activeRoutesCount" else "0"
+
+    val activeBaysSum = stopsList.sumOf { it.activeBays }
+    val totalBaysSum = stopsList.sumOf { it.baysCount }
+    val terminalBaysText = if (totalBaysSum > 0) "$activeBaysSum/$totalBaysSum" else "0/0"
 
     if (selectedTab == "Schedules") {
         ScheduleManagementScreen(user = user, onBack = { selectedTab = "Dashboard" })
@@ -182,9 +212,9 @@ fun AdminDashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                AdminStatCard(title = "Buses Active", value = "24/30", modifier = Modifier.weight(1f))
-                AdminStatCard(title = "Today's Routes", value = "42", modifier = Modifier.weight(1f))
-                AdminStatCard(title = "Terminal Bays", value = "5/8", modifier = Modifier.weight(1f))
+                AdminStatCard(title = "Buses Active", value = busesActiveText, modifier = Modifier.weight(1f))
+                AdminStatCard(title = "Today's Routes", value = routesText, modifier = Modifier.weight(1f))
+                AdminStatCard(title = "Terminal Bays", value = terminalBaysText, modifier = Modifier.weight(1f))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
