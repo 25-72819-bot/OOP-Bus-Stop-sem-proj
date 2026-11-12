@@ -98,6 +98,30 @@ fun MainApp() {
     var currentScreen by remember { mutableStateOf(ScreenState.LOGIN) }
     var loggedInUser by remember { mutableStateOf<user?>(null) }
     var showExitDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    fun handleLoginSuccess(user: user) {
+        loggedInUser = user
+        prefs.edit()
+            .putString("active_uid", user.userId)
+            .putString("active_name", user.fullname)
+            .putString("active_email", user.email)
+            .putString("active_role", user.role)
+            .apply()
+        DatabaseManager.saveUser(user)
+        currentScreen = ScreenState.HOME
+    }
+
+    fun handleLogout() {
+        prefs.edit()
+            .remove("active_uid")
+            .remove("active_name")
+            .remove("active_email")
+            .remove("active_role")
+            .apply()
+        loggedInUser = null
+        currentScreen = ScreenState.LOGIN
+    }
 
     BackHandler(enabled = true) {
         when (currentScreen) {
@@ -125,27 +149,19 @@ fun MainApp() {
         )
     }
 
-    fun handleLoginSuccess(user: user) {
-        loggedInUser = user
-        prefs.edit()
-            .putString("active_uid", user.userId)
-            .putString("active_name", user.fullname)
-            .putString("active_email", user.email)
-            .putString("active_role", user.role)
-            .apply()
-        DatabaseManager.saveUser(user)
-        currentScreen = ScreenState.HOME
-    }
-
-    fun handleLogout() {
-        prefs.edit()
-            .remove("active_uid")
-            .remove("active_name")
-            .remove("active_email")
-            .remove("active_role")
-            .apply()
-        loggedInUser = null
-        currentScreen = ScreenState.LOGIN
+    if (showLogoutDialog) {
+        SweetAlertDialog(
+            type = SweetAlertType.CONFIRM,
+            title = "Log Out",
+            message = "Are you sure you want to log out of your account?",
+            confirmText = "Yes, Log Out",
+            cancelText = "Cancel",
+            onConfirm = {
+                showLogoutDialog = false
+                handleLogout()
+            },
+            onDismiss = { showLogoutDialog = false }
+        )
     }
 
     // Auto-check if a user session is active (Auto-Login / Session persistence)
@@ -194,30 +210,31 @@ fun MainApp() {
             }
             ScreenState.HOME -> {
                 val user = loggedInUser
+                val requestLogout = { showLogoutDialog = true }
                 if (user != null) {
                     when (user.role.trim().lowercase()) {
                         "admin", "staff" -> {
                             AdminDashboardScreen(
                                 user = user,
-                                onLogout = ::handleLogout
+                                onLogout = requestLogout
                             )
                         }
                         "driver" -> {
                             com.example.myfirstapp.driver.DriverScheduleScreen(
                                 user = user,
-                                onLogout = ::handleLogout
+                                onLogout = requestLogout
                             )
                         }
                         "conductor" -> {
                             com.example.myfirstapp.conductor.ConductorDashboardScreen(
                                 user = user,
-                                onLogout = ::handleLogout
+                                onLogout = requestLogout
                             )
                         }
                         else -> {
                             HomeScreen(
                                 user = user,
-                                onLogout = ::handleLogout
+                                onLogout = requestLogout
                             )
                         }
                     }
