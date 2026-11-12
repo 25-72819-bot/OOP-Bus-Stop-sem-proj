@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import com.example.myfirstapp.BusSchedule
 import com.example.myfirstapp.DatabaseManager
 import com.example.myfirstapp.LiveBusLocation
+import com.example.myfirstapp.SweetAlertDialog
+import com.example.myfirstapp.SweetAlertType
 import com.example.myfirstapp.TransitGreen
 import com.example.myfirstapp.admin.LeafletMapViewScreen
 import com.example.myfirstapp.navigation.NavigationManager
@@ -52,6 +54,7 @@ fun DriverLiveNavigationScreen(
     var currentHeading by remember { mutableStateOf(0f) }
 
     var isTripCompleted by remember { mutableStateOf(false) }
+    var showCompleteDialog by remember { mutableStateOf(false) }
     var isGpsDisabled by remember { mutableStateOf(false) }
     var locationCallbackRef by remember { mutableStateOf<com.google.android.gms.location.LocationCallback?>(null) }
     val fusedLocationClient = remember { com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context) }
@@ -381,6 +384,62 @@ fun DriverLiveNavigationScreen(
                     }
                 }
             }
+
+            // Complete Trip Floating Button Overlay
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Button(
+                        onClick = { showCompleteDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = TransitGreen),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Complete Trip", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                    }
+                }
+            }
         }
+    }
+
+    if (showCompleteDialog) {
+        SweetAlertDialog(
+            type = SweetAlertType.CONFIRM,
+            title = "Complete Trip?",
+            message = "Are you sure you want to mark this trip as completed for Bus ${schedule.bus.busNumber}?",
+            confirmText = "Yes, Complete",
+            cancelText = "Cancel",
+            onConfirm = {
+                showCompleteDialog = false
+                isTripCompleted = true
+                DatabaseManager.updateScheduleStatus(
+                    scheduleId = schedule.scheduleId,
+                    newStatus = "Completed",
+                    driverName = user.fullname,
+                    onSuccess = {
+                        Toast.makeText(context, "Trip marked as Completed!", Toast.LENGTH_SHORT).show()
+                        NavigationService.stopService(context)
+                        onBack()
+                    },
+                    onFailure = { err ->
+                        Toast.makeText(context, "Completed: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
+                        NavigationService.stopService(context)
+                        onBack()
+                    }
+                )
+            },
+            onDismiss = { showCompleteDialog = false }
+        )
     }
 }
