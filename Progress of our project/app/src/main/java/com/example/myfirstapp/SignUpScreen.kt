@@ -101,8 +101,9 @@ fun SignUpScreen(
                         fullName = it
                         errorMessage = ""
                     },
-                    label = { Text("Full Name") },
-                    placeholder = { Text("e.g. Juan Dela Cruz") },
+                    label = { Text("Full Name (Last Name, First Name, M.I.)") },
+                    placeholder = { Text("e.g. Dela Cruz, Juan A.") },
+                    supportingText = { Text("Format: Last Name, First Name, M.I.", fontSize = 11.sp) },
                     singleLine = true,
                     colors = textFieldColors,
                     shape = RoundedCornerShape(10.dp),
@@ -118,9 +119,9 @@ fun SignUpScreen(
                         email = it
                         errorMessage = ""
                     },
-                    label = { Text("Email Address (@g.batstate-u.edu)") },
-                    placeholder = { Text("e.g. 21-12345@g.batstate-u.edu") },
-                    supportingText = { Text("Must use your @g.batstate-u.edu institutional email", fontSize = 11.sp) },
+                    label = { Text("Email Address (@g.batstate-u.edu.ph)") },
+                    placeholder = { Text("e.g. 21-12345@g.batstate-u.edu.ph") },
+                    supportingText = { Text("Must use your @g.batstate-u.edu.ph institutional email", fontSize = 11.sp) },
                     singleLine = true,
                     colors = textFieldColors,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -137,8 +138,9 @@ fun SignUpScreen(
                         phoneNumber = it
                         errorMessage = ""
                     },
-                    label = { Text("Phone Number") },
+                    label = { Text("Phone Number (e.g. 09123456789)") },
                     placeholder = { Text("e.g. 09123456789") },
+                    supportingText = { Text("e.g. 09123456789", fontSize = 11.sp) },
                     singleLine = true,
                     colors = textFieldColors,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -211,7 +213,7 @@ fun SignUpScreen(
                         when {
                             fullName.isBlank() -> errorMessage = "Please enter your full name"
                             email.isBlank() -> errorMessage = "Please enter your email address"
-                            !email.trim().lowercase().endsWith("@g.batstate-u.edu") -> errorMessage = "Email must end with @g.batstate-u.edu"
+                            !email.trim().lowercase().endsWith("@g.batstate-u.edu.ph") -> errorMessage = "Email must end with @g.batstate-u.edu.ph"
                             phoneNumber.isBlank() -> errorMessage = "Please enter your phone number"
                             password.length < 8 -> errorMessage = "Password must be at least 8 characters"
                             !agreedToTerms -> errorMessage = "Please agree to the Terms of Service"
