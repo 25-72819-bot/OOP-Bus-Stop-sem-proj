@@ -129,19 +129,6 @@ fun CommuterHome(
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
-    var ratingScheduleTarget by remember { mutableStateOf<BusSchedule?>(null) }
-
-    if (ratingScheduleTarget != null) {
-        val targetSched = ratingScheduleTarget!!
-        CommuterRateDialog(
-            busNumber = targetSched.bus.busNumber,
-            driverName = targetSched.bus.assignedDriver,
-            routeName = targetSched.route.routeName,
-            commuterName = user.fullname,
-            onDismiss = { ratingScheduleTarget = null }
-        )
-    }
-
     LaunchedEffect(Unit) {
         DatabaseManager.listenToSchedules(
             onUpdate = { list ->
@@ -355,39 +342,6 @@ fun CommuterHome(
                                         color = Color.DarkGray,
                                         fontWeight = FontWeight.Medium
                                     )
-
-                                    val isCompletedTrip = schedule.status.equals("Completed", ignoreCase = true) ||
-                                            schedule.status.equals("Arrived", ignoreCase = true) ||
-                                            schedule.status.equals("Finished", ignoreCase = true)
-
-                                    TextButton(
-                                        onClick = {
-                                            if (isCompletedTrip) {
-                                                ratingScheduleTarget = schedule
-                                            } else {
-                                                Toast.makeText(
-                                                    context,
-                                                    "You can only rate the driver after the ride is completed.",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = "Rate Driver",
-                                            tint = if (isCompletedTrip) Color(0xFFFFB300) else Color.Gray,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = if (isCompletedTrip) "Rate Driver" else "Rate (Completed Only)",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isCompletedTrip) TransitGreen else Color.Gray
-                                        )
-                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(8.dp))
