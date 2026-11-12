@@ -205,6 +205,7 @@ object DatabaseManager {
                 put("email", user.email)
                 put("role", user.role)
                 put("password", user.password)
+                put("image_url", user.imageUrl)
             }.toString()
 
             try {
@@ -257,7 +258,8 @@ object DatabaseManager {
                             val email = obj.safeString("email")
                             val role = obj.safeString("role", "Passenger")
                             val password = obj.safeString("password")
-                            onSuccess(user(uId, fullname, email, password, role))
+                            val imageUrl = obj.safeString("image_url")
+                            onSuccess(user(uId, fullname, email, password, role, imageUrl))
                         } else {
                             onSuccess(null)
                         }
@@ -991,7 +993,8 @@ object DatabaseManager {
                                         fullname = obj.safeString("fullname", "Transit User"),
                                         email = uEmail,
                                         password = uPass,
-                                        role = obj.safeString("role", "Passenger")
+                                        role = obj.safeString("role", "Passenger"),
+                                        imageUrl = obj.safeString("image_url")
                                     )
                                     break
                                 }
@@ -1273,6 +1276,57 @@ object DatabaseManager {
                     withContext(Dispatchers.Main) { onSuccess(publicUrl) }
                 } else {
                     // Fallback to Base64 string if 401/403 unauthorized occurs due to bucket RLS policies
+                    val b64 = convertUriToBase64(context, imageUri)
+                    if (b64.isNotBlank()) {
+                        withContext(Dispatchers.Main) { onSuccess(b64) }
+                    } else {
+                        val err = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Error $responseCode"
+                        withContext(Dispatchers.Main) { onFailure(Exception(err)) }
+                    }
+                }
+            } catch (e: Exception) {
+                try {
+                    val b64 = convertUriToBase64(context, imageUri)
+                    if (b64.isNotBlank()) {
+                        withContext(Dispatchers.Main) { onSuccess(b64) }
+                        return@launch
+                    }
+                } catch (_: Exception) {}
+                withContext(Dispatchers.Main) { onFailure(e) }
+            }
+        }
+    }
+
+    fun uploadProfileImageToSupabaseStorage(
+        context: android.content.Context,
+        imageUri: android.net.Uri,
+        onSuccess: (String) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        ioScope.launch {
+            try {
+                val fileName = "profile_${System.currentTimeMillis()}.jpg"
+                val url = URL("https://ulhylotzjyvevtiufrmb.supabase.co/storage/v1/object/student_profile/$fileName")
+                val connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("apikey", SUPABASE_KEY)
+                    setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
+                    setRequestProperty("Content-Type", "image/jpeg")
+                    doInput = true
+                    doOutput = true
+                }
+
+                context.contentResolver.openInputStream(imageUri)?.use { inputStream ->
+                    connection.outputStream.use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+
+                val responseCode = connection.responseCode
+                if (responseCode in 200..299) {
+                    val publicUrl = "https://ulhylotzjyvevtiufrmb.supabase.co/storage/v1/object/public/student_profile/$fileName"
+                    withContext(Dispatchers.Main) { onSuccess(publicUrl) }
+                } else {
                     val b64 = convertUriToBase64(context, imageUri)
                     if (b64.isNotBlank()) {
                         withContext(Dispatchers.Main) { onSuccess(b64) }

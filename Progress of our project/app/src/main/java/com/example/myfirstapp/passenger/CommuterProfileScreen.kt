@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -38,7 +39,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.myfirstapp.BusSchedule
 import com.example.myfirstapp.DatabaseManager
 import com.example.myfirstapp.SweetAlertDialog
@@ -58,11 +58,11 @@ fun CommuterProfileScreen(
     // State variables for profile details
     var fullName by remember { mutableStateOf(user.fullname) }
     var email by remember { mutableStateOf(user.email) }
-    var password by remember { mutableStateOf(user.password) }
+    var password by remember { mutableStateOf(user.password.ifBlank { "password123" }) }
     var passwordVisible by remember { mutableStateOf(false) }
 
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
-    var profileImageUrl by remember { mutableStateOf("") }
+    var profileImageUrl by remember { mutableStateOf(user.imageUrl) }
     var isSavingProfile by remember { mutableStateOf(false) }
     var profileErrorMessage by remember { mutableStateOf("") }
 
@@ -148,14 +148,13 @@ fun CommuterProfileScreen(
                     modifier = Modifier.size(100.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        if (profileImageUri != null || profileImageUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = profileImageUri ?: profileImageUrl,
-                                contentDescription = "Profile Picture",
+                        val currentImgUrl = profileImageUri?.toString() ?: profileImageUrl
+                        if (currentImgUrl.isNotBlank()) {
+                            ProfileAvatarBitmap(
+                                imageUrl = currentImgUrl,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop
+                                    .clip(CircleShape)
                             )
                         } else {
                             Icon(
@@ -308,7 +307,7 @@ fun CommuterProfileScreen(
                                 fullName.isBlank() -> profileErrorMessage = "Full name cannot be empty"
                                 email.isBlank() -> profileErrorMessage = "Email address cannot be empty"
                                 !email.trim().lowercase().endsWith("@g.batstate-u.edu.ph") -> profileErrorMessage = "Email must end with @g.batstate-u.edu.ph"
-                                password.length < 8 -> profileErrorMessage = "Password must be at least 8 characters"
+                                password.isNotBlank() && password.length < 8 -> profileErrorMessage = "Password must be at least 8 characters"
                                 else -> {
                                     isSavingProfile = true
                                     profileErrorMessage = ""
@@ -318,8 +317,9 @@ fun CommuterProfileScreen(
                                             userId = user.userId,
                                             fullname = fullName.trim(),
                                             email = email.trim(),
-                                            password = password,
-                                            role = user.role
+                                            password = if (password.isNotBlank()) password else user.password.ifBlank { "password123" },
+                                            role = user.role,
+                                            imageUrl = profileImageUrl
                                         )
 
                                         DatabaseManager.saveUser(
@@ -329,11 +329,13 @@ fun CommuterProfileScreen(
                                                 user.fullname = updatedUser.fullname
                                                 user.email = updatedUser.email
                                                 user.password = updatedUser.password
+                                                user.imageUrl = updatedUser.imageUrl
 
                                                 // Update local SharedPreferences
                                                 prefs.edit()
                                                     .putString("active_name", updatedUser.fullname)
                                                     .putString("active_email", updatedUser.email)
+                                                    .putString("active_img", updatedUser.imageUrl)
                                                     .apply()
 
                                                 alertType = SweetAlertType.SUCCESS
@@ -349,7 +351,7 @@ fun CommuterProfileScreen(
                                     }
 
                                     if (profileImageUri != null) {
-                                        DatabaseManager.uploadBusImageToSupabaseStorage(
+                                        DatabaseManager.uploadProfileImageToSupabaseStorage(
                                             context = context,
                                             imageUri = profileImageUri!!,
                                             onSuccess = { uploadedUrl ->
@@ -552,5 +554,70 @@ fun CommuterProfileScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun ProfileAvatarBitmap(
+    imageUrl: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var bitmap by remember(imageUrl) { mutableStateOf<android.graphics.Bitmap?>(null) }
+
+    LaunchedEffect(imageUrl) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val bmp = try {
+                when {
+                    imageUrl.startsWith("data:image") && imageUrl.contains("base64,") -> {
+                        val base64Data = imageUrl.substringAfter("base64,")
+                        val decodedBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+                        android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                    }
+                    imageUrl.startsWith("/") -> {
+                        val file = java.io.File(imageUrl)
+                        if (file.exists()) android.graphics.BitmapFactory.decodeFile(file.absolutePath) else null
+                    }
+                    imageUrl.startsWith("content://") -> {
+                        val uri = android.net.Uri.parse(imageUrl)
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        val bytes = inputStream?.readBytes()
+                        if (bytes != null) android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) else null
+                    }
+                    imageUrl.startsWith("http://") || imageUrl.startsWith("https://") -> {
+                        val url = java.net.URL(imageUrl)
+                        val connection = url.openConnection() as java.net.HttpURLConnection
+                        connection.connectTimeout = 5000
+                        connection.readTimeout = 5000
+                        val bytes = connection.inputStream.readBytes()
+                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }
+                    else -> null
+                }
+            } catch (_: Exception) {
+                null
+            }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                bitmap = bmp
+            }
+        }
+    }
+
+    if (bitmap != null) {
+        androidx.compose.foundation.Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = "Profile Picture",
+            modifier = modifier,
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Box(contentAlignment = Alignment.Center, modifier = modifier) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Default Profile",
+                tint = TransitGreen,
+                modifier = Modifier.size(54.dp)
+            )
+        }
     }
 }

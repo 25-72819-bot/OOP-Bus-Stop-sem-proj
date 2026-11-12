@@ -5,7 +5,8 @@ class user(
     var fullname: String,
     var email: String,
     var password: String,
-    var role: String
+    var role: String,
+    var imageUrl: String = ""
 ) {
     fun verifyPassword(input: String): Boolean {
         return password == input
@@ -28,5 +29,6 @@ class user(
         println("Name: $fullname")
         println("Email: $email")
         println("Role: $role")
+        println("Image URL: $imageUrl")
     }
 }

@@ -107,6 +107,8 @@ fun MainApp() {
             .putString("active_name", user.fullname)
             .putString("active_email", user.email)
             .putString("active_role", user.role)
+            .putString("active_pass", user.password)
+            .putString("active_img", user.imageUrl)
             .apply()
         DatabaseManager.saveUser(user)
         currentScreen = ScreenState.HOME
@@ -118,6 +120,8 @@ fun MainApp() {
             .remove("active_name")
             .remove("active_email")
             .remove("active_role")
+            .remove("active_pass")
+            .remove("active_img")
             .apply()
         loggedInUser = null
         currentScreen = ScreenState.LOGIN
@@ -170,14 +174,17 @@ fun MainApp() {
         val savedName = prefs.getString("active_name", "") ?: ""
         val savedEmail = prefs.getString("active_email", "") ?: ""
         val savedRole = prefs.getString("active_role", "") ?: ""
+        val savedPass = prefs.getString("active_pass", "") ?: ""
+        val savedImg = prefs.getString("active_img", "") ?: ""
 
         if (savedUid.isNotBlank() && savedEmail.isNotBlank()) {
             loggedInUser = user(
                 userId = savedUid,
                 fullname = savedName.ifBlank { "Commuter User" },
                 email = savedEmail,
-                password = "",
-                role = savedRole.ifBlank { "Passenger" }
+                password = savedPass,
+                role = savedRole.ifBlank { "Passenger" },
+                imageUrl = savedImg
             )
             currentScreen = ScreenState.HOME
         }
